@@ -33,5 +33,5 @@ jobs:
           base: master
           branch: create-pull-request/update-copilot-dist
           commit-message: "feat: update to latest copilot.vim/dist"
-          reviewers: MunifTanjim,zbirenbaum
+          reviewers: MuntasirSZN
           title: "Update copilot.vim/dist"
