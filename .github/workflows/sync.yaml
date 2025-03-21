@@ -22,6 +22,8 @@ jobs:
           
       - name: Sync fork
         run: |
+          git config --global user.email "muntasir.joypurhat@gmail.com"
+          git config --global user.name "MuntasirSZN"
           git checkout master
           git merge upstream/master
           git push origin master
