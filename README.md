@@ -8,6 +8,7 @@ This plugin is the pure lua replacement for [github/copilot.vim](https://github.
 While using `copilot.vim`, for the first time since I started using neovim my laptop began to overheat. Additionally,
 I found the large chunks of ghost text moving around my code, and interfering with my existing cmp ghost text disturbing.
 As lua is far more efficient and makes things easier to integrate with modern plugins, this repository was created.
+
 </details>
 
 ## Install
@@ -86,7 +87,21 @@ require('copilot').setup({
     cvs = false,
     ["."] = false,
   },
+  logger = {
+    log_to_file = false,
+    file = vim.fn.stdpath("log") .. "/copilot-lua.log",
+    file_log_level = vim.log.levels.WARN,
+    print_log = true,
+    print_log_level = vim.log.levels.WARN,
+    trace_lsp = "off", -- "off" | "messages" | "verbose"
+    trace_lsp_progress = false,
+  },
   copilot_node_command = 'node', -- Node.js version must be > 18.x
+  workspace_folders = {},
+  copilot_model = "",  -- Current LSP default is gpt-35-turbo, supports gpt-4o-copilot
+  root_dir = function()
+    return vim.fs.dirname(vim.fs.find(".git", { upward = true })[1])
+  end,
   server_opts_overrides = {},
 })
 ```
@@ -110,7 +125,7 @@ require("copilot.panel").refresh()
 
 ### suggestion
 
-When `auto_trigger` is `true`, copilot starts suggesting as soon as you enter insert mode. 
+When `auto_trigger` is `true`, copilot starts suggesting as soon as you enter insert mode.
 
 When `auto_trigger` is `false`, use the `next` or `prev` keymap to trigger copilot suggestion.
 
@@ -177,6 +192,32 @@ require("copilot").setup {
 }
 ```
 
+### logger
+
+When `log_to_file` is true, logs will be written to the `file` for anything of `file_log_level` or higher.
+When `print_log` is true, logs will be printed to NeoVim (using `notify`) for anything of `print_log_level` or higher.
+File logging is done asynchronously to minimize performance impacts, however there is still some overhead.
+
+Log levels used are the ones defined in `vim.log`:
+
+```lua
+vim.log = {
+  levels = {
+    TRACE = 0,
+    DEBUG = 1,
+    INFO = 2,
+    WARN = 3,
+    ERROR = 4,
+    OFF = 5,
+  },
+}
+```
+
+`trace_lsp` can either be `off`, `messages` which will output the LSP messages, or `verbose` which adds additonal information to the message.
+When `trace_lsp_progress` is true, LSP progress messages will also be logged.
+
+Careful turning on all logging features as the log files may get very large over time, and are not pruned by the application.
+
 ### copilot_node_command
 
 Use this field to provide the path to a specific node version such as one installed by nvm. Node.js version must be 18.x or newer.
@@ -208,6 +249,27 @@ require("copilot").setup {
   }
 }
 ```
+
+### workspace_folders
+
+Workspace folders improve Copilot's suggestions.
+By default, the root_dir is used as a wokspace_folder.
+
+Additional folders can be added through the configuration as such:
+
+```lua
+workspace_folders = {
+  "/home/user/gits",
+  "/home/user/projects",
+}
+```
+
+They can also be added runtime, using the command `:Copilot workspace add [folderpath]` where `[folderpath]` is the workspace folder.
+
+### root_dir
+
+This allows changing the function that gets the root folder, the default looks for a parent folder that contains the folder `.git`.
+If none is found, it will use the current working directory.
 
 ## Commands
 

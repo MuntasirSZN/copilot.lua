@@ -3,6 +3,7 @@ local c = require("copilot.client")
 local config = require("copilot.config")
 local hl_group = require("copilot.highlight").group
 local util = require("copilot.util")
+local logger = require("copilot.logger")
 
 local mod = {}
 
@@ -79,14 +80,14 @@ local function is_panel_uri(bufname)
 end
 
 function panel:lock()
-  vim.api.nvim_buf_set_option(self.bufnr, "modifiable", false)
-  vim.api.nvim_buf_set_option(self.bufnr, "readonly", true)
+  vim.api.nvim_set_option_value("modifiable", false, { buf = self.bufnr })
+  vim.api.nvim_set_option_value("readonly", true, { buf = self.bufnr })
   return self
 end
 
 function panel:unlock()
-  vim.api.nvim_buf_set_option(self.bufnr, "modifiable", true)
-  vim.api.nvim_buf_set_option(self.bufnr, "readonly", false)
+  vim.api.nvim_set_option_value("modifiable", true, { buf = self.bufnr })
+  vim.api.nvim_set_option_value("readonly", false, { buf = self.bufnr })
   return self
 end
 
@@ -301,14 +302,14 @@ function panel:ensure_bufnr()
       swapfile = false,
       undolevels = 0,
     }) do
-      vim.api.nvim_buf_set_option(self.bufnr, name, value)
+      vim.api.nvim_set_option_value(name, value, { buf = self.bufnr })
     end
 
     set_keymap(self.bufnr)
   end
 
   vim.api.nvim_buf_set_name(self.bufnr, self.panel_uri)
-  vim.api.nvim_buf_set_option(self.bufnr, "filetype", self.filetype)
+  vim.api.nvim_set_option_value("filetype", self.filetype, { buf = self.bufnr })
 end
 
 function panel:ensure_winid()
@@ -337,7 +338,7 @@ function panel:ensure_winid()
 
   local split_info = split_map[position]
   if not split_info then
-    print("Error: " .. position .. " is not a valid position")
+    logger.error(string.format("%s is not a valid position", position))
     return
   end
 
@@ -362,7 +363,7 @@ function panel:ensure_winid()
     relativenumber = false,
     signcolumn = "no",
   }) do
-    vim.api.nvim_win_set_option(self.winid, name, value)
+    vim.api.nvim_set_option_value(name, value, { win = self.winid })
   end
 
   vim.api.nvim_create_augroup(self.augroup, { clear = true })
@@ -446,7 +447,7 @@ function panel:refresh()
       elseif result.status == "Error" then
         self.state.status = "error"
         self.state.error = result.message
-        print(self.state.error)
+        logger.error(self.state.error)
       end
 
       self:unlock():refresh_header():lock()
@@ -482,7 +483,7 @@ function panel:refresh()
       if err then
         self.state.status = "error"
         self.state.error = err
-        print(self.state.error)
+        logger.error(self.state.error)
         return
       end
 
@@ -491,7 +492,7 @@ function panel:refresh()
     end
   )
 
-  self.state.req_id = id
+  self.state.req_id = id.solutionCountTarget
 end
 
 function panel:init()
@@ -505,10 +506,7 @@ function panel:init()
 
   if not c.buf_is_attached(0) then
     local should_attach, no_attach_reason = util.should_attach()
-    vim.notify(
-      string.format("[Copilot] %s", should_attach and ("Disabled manually for " .. vim.bo.filetype) or no_attach_reason),
-      vim.log.levels.ERROR
-    )
+    logger.error(string.format("%s", should_attach and "Disabled manually for " .. vim.bo.filetype or no_attach_reason))
     return
   end
 
@@ -548,7 +546,7 @@ end
 function mod.open(layout)
   local client = c.get()
   if not client then
-    print("Error, copilot not running")
+    logger.error("copilot is not running")
     return
   end
 
