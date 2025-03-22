@@ -23,8 +23,7 @@ local M = {
 local function store_client_id(id)
   if M.id and M.id ~= id then
     if vim.lsp.get_client_by_id(M.id) then
-      logger.error("unexpectedly started multiple copilot servers")
-      return
+      vim.lsp.stop_client(M.id)
     end
   end
 
@@ -170,7 +169,7 @@ function M.use_client(callback)
     return
   end
 
-  local timer, err, _ = vim.loop.new_timer()
+  local timer, err, _ = vim.uv.new_timer()
 
   if not timer then
     logger.error(string.format("error creating timer: %s", err))
@@ -188,6 +187,37 @@ function M.use_client(callback)
       end
     end)
   )
+end
+
+local function get_handlers()
+  local handlers = {
+    PanelSolution = api.handlers.PanelSolution,
+    PanelSolutionsDone = api.handlers.PanelSolutionsDone,
+    statusNotification = api.handlers.statusNotification,
+    ["copilot/openURL"] = api.handlers["copilot/openURL"],
+  }
+
+  -- optional handlers
+  local logger_conf = config.get("logger") --[[@as copilot_config_logging]]
+  if logger_conf.trace_lsp ~= "off" then
+    handlers = vim.tbl_extend("force", handlers, {
+      ["$/logTrace"] = logger.handle_lsp_trace,
+    })
+  end
+
+  if logger_conf.trace_lsp_progress then
+    handlers = vim.tbl_extend("force", handlers, {
+      ["$/progress"] = logger.handle_lsp_progress,
+    })
+  end
+
+  if logger_conf.log_lsp_messages then
+    handlers = vim.tbl_extend("force", handlers, {
+      ["window/logMessage"] = logger.handle_log_lsp_messages,
+    })
+  end
+
+  return handlers
 end
 
 local function prepare_client_config(overrides)
@@ -218,13 +248,6 @@ local function prepare_client_config(overrides)
     workspaceFolders = true,
   }
 
-  local handlers = {
-    PanelSolution = api.handlers.PanelSolution,
-    PanelSolutionsDone = api.handlers.PanelSolutionsDone,
-    statusNotification = api.handlers.statusNotification,
-    ["copilot/openURL"] = api.handlers["copilot/openURL"],
-  }
-
   local root_dir = config.get_root_dir()
   local workspace_folders = {
     --- @type workspace_folder
@@ -249,6 +272,8 @@ local function prepare_client_config(overrides)
       )
     end
   end
+
+  local editor_info = util.get_editor_info()
 
   -- LSP config, not to be confused with config.lua
   return vim.tbl_deep_extend("force", {
@@ -301,9 +326,14 @@ local function prepare_client_config(overrides)
         end)
       end
     end,
-    handlers = handlers,
+    handlers = get_handlers(),
     init_options = {
       copilotIntegrationId = "vscode-chat",
+      -- Fix LSP warning: editorInfo and editorPluginInfo will soon be required in initializationOptions
+      -- We are sending these twice for the time being as it will become required here and we get a warning if not set.
+      -- However if not passed in setEditorInfo, that one returns an error.
+      editorInfo = editor_info.editorInfo,
+      editorPluginInfo = editor_info.editorPluginInfo,
     },
     workspace_folders = workspace_folders,
     trace = config.get("trace") or "off",
