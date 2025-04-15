@@ -5,6 +5,7 @@ on: [push, pull_request]
 jobs:
   unit_tests:
     name: unit tests
+    if: github.repository == 'AntoineGS/copilot.lua'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
